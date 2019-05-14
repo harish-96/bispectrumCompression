@@ -168,7 +168,7 @@ def Fishz(pars,parc):
     parc = [Omega_m, sigma_8, n_s, w_0, w_a, Omega_b, h0]
     '''
     # Bispectrum in redshift space is a 5D function. Integrate over 5D with MC.
-    RR = random.rand(NMC,5)
+    RR = np.random.rand(NMC,5)
     for i in range(NMC):
         eta1 = etamax*RR[i,0]
         eta2 = etamax*RR[i,1]
