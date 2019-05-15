@@ -25,25 +25,28 @@ def compFaa(K, mu, Nk, Nmu, apar, aper, f, b1, b2, navg, Vs, bin_size=8):
     Fp_t = np.zeros((Nk_t, Nk_t, Nmu))
     dP_tda = np.zeros((Nk//bin_size, Nmu))
 
+    tmp_f = np.zeros(Nk)
     for i in range(Nk):
         for l in range(Nmu):
             Ps[i, l] = Pk((K[i], mu[l]), (apar, aper, f, b1, b2))
             Covs[i,l] = CovP((K[i], mu[l]), (apar, aper, f, b1, b2), (navg, Vs))
             dPda[i,l] = (Pk((K[i], mu[l]), (apar+eps, aper, f, b1, b2)) - Ps[i,l]) / eps
-            faa += K[i]**2 * dk * dmu * dPda[i,l]**2 / Covs[i,l]
+            faa += K[i]**2 * dPda[i,l]**2 / Covs[i,l]
 
     # Computing the same quantities for binned data
     for i in range(Nmu):
         dP_tda[:, i] = np.dot(A, dPda[:,i])
         CovP_t[:, :, i] = np.dot(A, np.dot(np.diag(Covs[:,i]), A.T))
         Fp_t[:,:,i] = np.linalg.inv(CovP_t[:, :, i])
-    # pdb.set_trace()
+    
     for i in range(Nk//bin_size):
         for k in range(Nmu):
-            faa_t += K_t[i]**2 * dk_t * dmu * dP_tda[i, k]**2 * Fp_t[i, i, k]
+            faa_t += K_t[i]**2 * dP_tda[i, k]**2 * Fp_t[i, i, k]
             # faa_t += 2*np.pi*K_t[i]**2*K_t[j]**2*dk_t**2*dmu*dP_tda[i, k] * dP_tda[j, k] * Fp_t[i, j, k]
+    # pdb.set_trace()
 
-    return Nk * faa, Nk_t * faa_t
+    # return Nk * faa, Nk_t * faa_t
+    return faa, faa_t
 
 def conv1d_matrix(shape, kernel):
     # shape[0] * len(kernel) == shape[1]
@@ -65,7 +68,7 @@ Kmax, Kmin = (0.8, 1e-3)
 
 parc = (apar, aper, f, b1, b2)
 
-Nks = np.arange(16, 64, 8)
+Nks = np.arange(16, 80, 8)
 bin_sizes = np.array([2, 4, 8])
 dk = (Kmax - Kmin) / Nks
 

@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt     
 from numba import jit
 from BFisherutils import *
+import pdb
 
-@jit
 def compFaa(K, mu, phi, Nk, Nmu, Nphi, apar, aper, f, b1, b2, navg, Vs):
     dk = K[1] - K[0]
     dmu = mu[1] - mu[0]
@@ -13,6 +13,7 @@ def compFaa(K, mu, phi, Nk, Nmu, Nphi, apar, aper, f, b1, b2, navg, Vs):
     Covs = np.zeros((Nk, Nk, Nk, Nmu, Nphi), dtype=np.float64)
     notTriangles = 0
     faa = 0
+    tmp_f = np.zeros(Nk)
     for i in range(Nk):
         for j in range(Nk):
             for k in range(Nk):
@@ -24,8 +25,10 @@ def compFaa(K, mu, phi, Nk, Nmu, Nphi, apar, aper, f, b1, b2, navg, Vs):
                         dFaa = K[i] * K[j] * K[k] * dk**3 * dmu * dphi * dBda[i,j,k,l,m]**2 / Covs[i,j,k,l,m]
                         if not np.isnan(dFaa):
                             faa += dFaa
+                            tmp_f[i] += dFaa
                         else:
                             notTriangles += 1
+    pdb.set_trace()
     print('Number of non triangles: ', notTriangles)
     return faa
 
@@ -44,7 +47,7 @@ parc = (apar, aper, f, b1, b2)
 
 Kmax, Kmin = (0.3, 1e-3)
 Faa, dk = [], []
-for Nk in range(10, 20, 5):
+for Nk in range(5, 30, 5):
     dk.append((Kmax - Kmin) / Nk)
     Faa.append(0)
 
