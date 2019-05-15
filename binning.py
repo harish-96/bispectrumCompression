@@ -4,9 +4,12 @@ import pdb
 
 
 def compFaa(K, mu, Nk, Nmu, apar, aper, f, b1, b2, navg, Vs, bin_size=8):
-    # Nk = Nk - Nk%bin_size
-    # K = K[:Nk]
-    dk = K[1] - K[0]
+    Nk = Nk - Nk%bin_size
+    K = K[:Nk]
+    if Nk == 1:
+        dk = K[0]
+    else:
+        dk = K[1] - K[0]
     dmu = mu[1] - mu[0]
     faa, faa_t = 0, 0
     eps = 1e-6
@@ -20,8 +23,6 @@ def compFaa(K, mu, Nk, Nmu, apar, aper, f, b1, b2, navg, Vs, bin_size=8):
     dk_t = K_t[1] - K_t[0]
     CovP_t = np.zeros((Nk_t, Nk_t, Nmu))
     Fp_t = np.zeros((Nk_t, Nk_t, Nmu))
-    CovP_tdiag = np.zeros((Nk_t, Nmu))
-    Fp_tdiag = np.zeros((Nk_t, Nmu))
     dP_tda = np.zeros((Nk//bin_size, Nmu))
 
     for i in range(Nk):
@@ -36,15 +37,13 @@ def compFaa(K, mu, Nk, Nmu, apar, aper, f, b1, b2, navg, Vs, bin_size=8):
         dP_tda[:, i] = np.dot(A, dPda[:,i])
         CovP_t[:, :, i] = np.dot(A, np.dot(np.diag(Covs[:,i]), A.T))
         Fp_t[:,:,i] = np.linalg.inv(CovP_t[:, :, i])
-        CovP_tdiag[:, i] = np.diagonal(CovP_t[:,:,i])
-        Fp_tdiag[:, i] = np.diagonal(Fp_t[:,:,i])
     # pdb.set_trace()
     for i in range(Nk//bin_size):
         for k in range(Nmu):
-            faa_t += K_t[i]**2 * dk_t * dmu * dP_tda[i, k]**2 * Fp_tdiag[i, k]
+            faa_t += K_t[i]**2 * dk_t * dmu * dP_tda[i, k]**2 * Fp_t[i, i, k]
             # faa_t += 2*np.pi*K_t[i]**2*K_t[j]**2*dk_t**2*dmu*dP_tda[i, k] * dP_tda[j, k] * Fp_t[i, j, k]
 
-    return faa, faa_t/bin_size
+    return Nk * faa, Nk_t * faa_t
 
 def conv1d_matrix(shape, kernel):
     # shape[0] * len(kernel) == shape[1]
