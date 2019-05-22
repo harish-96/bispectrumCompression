@@ -3,7 +3,7 @@ from BFisherutils import *
 import pdb
 
 
-def KL_1d(mean_der, cov):
+def KL_matrix(mean_der, cov):
     return np.dot(mean_der.T, np.linalg.inv(cov))
 
 def conv1d_matrix(shape, kernel):
@@ -13,20 +13,19 @@ def conv1d_matrix(shape, kernel):
         A[i, i*len(kernel):(i+1)*len(kernel)] = kernel
     return A
 
-def Faa_bin(K, mu, Nk, Nmu, params, navg, Vs, bin_size=8):
-    apar, aper, f, b1, b2 = params
+def Fii_bin(K, mu, params, navg, Vs, par_index=0, bin_size=8):
+    dmu = mu[1] - mu[0]
+    Nmu = len(mu)
+    Nk = len(K)
+    faa_bin = 0
+    eps = 1e-6
+
     Nk = int(Nk - Nk%bin_size)
     K = K[:Nk]
     if Nk == 1:
         dk = K[0]
     else:
         dk = K[1] - K[0]
-    dmu = mu[1] - mu[0]
-    faa, faa_t = 0, 0
-    eps = 1e-6
-    Ps = np.zeros((Nk, Nmu), dtype=np.float64)
-    dPda = np.zeros((Nk,Nmu), dtype=np.float64)
-    Covs = np.zeros((Nk,Nmu), dtype=np.float64)
 
     Nk_t = int(Nk//bin_size)
     kernel = np.ones(bin_size)/bin_size
@@ -37,96 +36,117 @@ def Faa_bin(K, mu, Nk, Nmu, params, navg, Vs, bin_size=8):
         dk_t = K_t[0]
     else:
         dk_t = K_t[1] - K_t[0]
-    CovP_t = np.zeros((Nk_t, Nk_t, Nmu))
-    Fp_t = np.zeros((Nk_t, Nk_t, Nmu))
-    dP_tda = np.zeros((Nk_t, Nmu))
 
-    for l in range(Nmu):
-        for i in range(Nk):
-            Ps[i, l] = Pk((K[i], mu[l]), (apar, aper, f, b1, b2))
-            Covs[i,l] = CovP((K[i], mu[l]), (apar, aper, f, b1, b2), (navg, Vs))
-            dPda[i,l] = (Pk((K[i], mu[l]), (apar+eps, aper, f, b1, b2)) - Ps[i,l]) / eps
-            faa += 2*np.pi* K[i]**2 * dmu * dPda[i,l]**2 / Covs[i,l] / dk**2
-        dP_tda[:, l] = np.dot(A, dPda[:,l])
-        CovP_t[:, :, l] = np.dot(A, np.dot(np.diag(Covs[:,l]), A.T))
-        Fp_t[:,:,l] = np.linalg.inv(CovP_t[:, :, l])
-
-    for i in range(Nk_t):
-        for k in range(Nmu):
-            faa_t += 2*np.pi * dmu * K_t[i]**2 * dP_tda[i, k]**2 * Fp_t[i, i, k] / dk_t**2
-
-    return faa_t
-
-def Faa_KL(K, mu, Nk, Nmu, params, navg, Vs):
-    apar, aper, f, b1, b2 = params
-    dmu = mu[1] - mu[0]
-    faa, faa_kl = 0, 0
-    eps = 1e-6
     Ps = np.zeros((Nk, Nmu), dtype=np.float64)
     dPda = np.zeros((Nk,Nmu), dtype=np.float64)
     Covs = np.zeros((Nk,Nmu), dtype=np.float64)
 
+    CovP_t = np.zeros((Nk_t, Nk_t, Nmu))
+    Fp_t = np.zeros((Nk_t, Nk_t, Nmu))
+    dP_tda = np.zeros((Nk_t, Nmu))
+
+    dparams = np.zeros_like(params)
+    dparams[par_index] = eps
+
     for l in range(Nmu):
         for i in range(Nk):
-            Ps[i, l] = Pk((K[i], mu[l]), (apar, aper, f, b1, b2))
-            Covs[i,l] = CovP((K[i], mu[l]), (apar, aper, f, b1, b2), (navg, Vs))
-            dPda[i,l] = (Pk((K[i], mu[l]), (apar+eps, aper, f, b1, b2)) - Ps[i,l]) / eps
-            faa += 2*np.pi* K[i]**2 * dmu * dPda[i,l]**2 / Covs[i,l] / dk**2
-        C = Covs[:, l] * dk**2/(2*np.pi*K**2*dmu)
-        B = KL_1d(dPda[:, l], np.diag(C))
-        faa_kl += np.dot(B, np.dot(np.diag(C), B.T))
+            Ps[i, l] = Pk((K[i], mu[l]), params)
+            Covs[i,l] = CovP((K[i], mu[l]), params, (navg, Vs))
+            Covs[i, l] *= dk**2 / (2*np.pi*K[i]**2*dmu)
+            dPda[i,l] = (Pk((K[i], mu[l]), params+dparams) - Ps[i,l]) / eps
+        dP_tda[:, l] = np.dot(A, dPda[:,l])
+        CovP_t[:, :, l] = np.dot(A, np.dot(np.diag(Covs[:,l]), A.T))
+        Fp_t[:,:,l] = np.linalg.inv(CovP_t[:, :, l])
+        
+        faa_bin += np.sum(dP_tda[:, l]**2 * np.diagonal(Fp_t[:,:,l]))
 
-    return faa_KL
+    return faa_bin
 
-def Faa(K, mu, Nk, Nmu, params, navg, Vs):
-    apar, aper, f, b1, b2 = params
+def F_KL(K, mu, params, navg, Vs, par_indices=[0]):
     dmu = mu[1] - mu[0]
+    dk = K[1] - K[0]
+    Nmu = len(mu)
+    Nk = len(K)
+    eps = 1e-6
+    Ps = np.zeros(Nk, dtype=np.float64)
+    dPda = np.zeros((Nk,len(par_indices)), dtype=np.float64)
+    Covs = np.zeros(Nk, dtype=np.float64)
+
+
+    for i in range(Nk):
+        for l in range(Nmu):
+            Ps[i] += Pk((K[i], mu[l]), params) / Nmu
+            Covs[i] += CovP((K[i], mu[l]), params, (navg, Vs)) / Nmu**2
+            for par_index in range(len(par_indices)):
+                dparams = np.zeros_like(params)
+                dparams[par_index] = eps
+                dPda[i, par_index] += (Pk((K[i], mu[l]), params+dparams) - Pk((K[i], mu[l]), params)) / eps / Nmu
+
+    Covs *= dk**2 / (2*np.pi*K**2*dmu)
+    faa = np.dot(dPda.T, np.dot(np.diag(1/Covs), dPda))
+    B = KL_matrix(dPda, np.diag(Covs))
+    f_t = np.linalg.inv(np.dot(B, np.dot(np.diag(Covs), B.T)))
+    faa_kl = np.dot(dPda.T, np.dot(B.T, np.dot(f_t, np.dot(B, dPda))))
+
+    pdb.set_trace()
+
+    return faa_kl
+
+
+def Fii(K, mu, params, navg, Vs, par_index=0):
+    dmu = mu[1] - mu[0]
+    dk = K[1] - K[0]
+    Nmu = len(mu)
+    Nk = len(K)
     faa = 0
     eps = 1e-6
     Ps = np.zeros((Nk, Nmu), dtype=np.float64)
     dPda = np.zeros((Nk,Nmu), dtype=np.float64)
     Covs = np.zeros((Nk,Nmu), dtype=np.float64)
 
+    dparams = np.zeros_like(params)
+    dparams[par_index] = eps
+
     for l in range(Nmu):
         for i in range(Nk):
-            Ps[i, l] = Pk((K[i], mu[l]), (apar, aper, f, b1, b2))
-            Covs[i,l] = CovP((K[i], mu[l]), (apar, aper, f, b1, b2), (navg, Vs))
-            dPda[i,l] = (Pk((K[i], mu[l]), (apar+eps, aper, f, b1, b2)) - Ps[i,l]) / eps
+            Ps[i, l] = Pk((K[i], mu[l]), params)
+            Covs[i,l] = CovP((K[i], mu[l]), params, (navg, Vs))
+            dPda[i,l] = (Pk((K[i], mu[l]), params+dparams) - Ps[i,l]) / eps
             faa += 2*np.pi* K[i]**2 * dmu * dPda[i,l]**2 / Covs[i,l] / dk**2
 
     return faa
 
 
-mu = np.linspace(-1, 1, 5)
-apar = 1.01
-aper = 0.99
-f = 0.4
-b1 = 1.7
-b2 = 0
-navg = 0.01
-Vs = 1
-eps = 1e-6
-Kmax, Kmin = (0.8, 1e-3)
-Nk = 100
-params = (apar, aper, f, b1, b2)
+if __name__ == "__main__":
+    apar = 1.01
+    aper = 0.99
+    f = 0.4
+    b1 = 1.7
+    b2 = 1
+    params = (apar, aper, f, b1, b2)
 
-dk = (Kmax - Kmin) / Nk
-K = np.arange(Kmin, Kmax, dk)
+    navg = 0.01
+    Vs = 1
+    eps = 1e-6
+    Kmax, Kmin = (0.8, 1e-3)
+    Nk = 100
+    bin_sizes = [1, 2, 4, 5, 10, 20, 25, 50, 100]
+    mu = np.linspace(-1, 1, 5)
 
-bin_sizes = [1, 2, 4, 5, 10, 20, 25, 50, 100]
+    dk = (Kmax - Kmin) / Nk
+    K = np.arange(Kmin, Kmax, dk)
 
-Faa_t = np.zeros(len(bin_sizes))
+    Fii_t = np.zeros(len(bin_sizes))
 
-for j in range(len(bin_sizes)):
+    # for j in range(len(bin_sizes)):
 
-    Faa_t[j] = Faa_bin(K, mu, Nk, len(mu), params, navg, Vs, bin_sizes[j])
+    #     Fii_t[j] = Fii_bin(K, mu, params, navg, Vs, 0, bin_sizes[j])
 
-    print(Faa_t[j]) 
+    #     print(Fii_t[j]) 
 
-plt.plot(bin_sizes, Faa_t, '*-')
-plt.xlabel('Bin sizes')
-plt.ylabel('$F_{aa}$')
-plt.legend()
-plt.savefig('./plot_bins.png')
-plt.show()
+    # plt.plot(bin_sizes, Fii_t, '*-')
+    # plt.xlabel('Bin sizes')
+    # plt.ylabel('$F_{aa}$')
+    # plt.savefig('./plot_bins.png')
+    # plt.show()
 
