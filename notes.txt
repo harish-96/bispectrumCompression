@@ -1,0 +1,5 @@
+We have measurements and simulations. Measurements cant give the statistics because there's only one sample. So we instead do many simulations to find covariance of a measurement.
+
+Cant have large covariance matrices because hard to invert, ill conditioned. For matchinf theory to experiment, we need to do something like exp[(T-D)^2/\sigma^2] for gaussian processes.
+
+So we'd like to match a smaller set of parameters between theory and expt, some \tilde B(B), a low dim function of bispectrum which would therefore have a smaller covariance matrix.

@@ -1,8 +1,34 @@
 import scipy.interpolate as itp
 import numpy as np
+from interpolation import interp
 
 PS = np.loadtxt('test_matterpower.dat')
+Pbao = np.loadtxt('Pbao.txt')
+Psmooth = np.loadtxt('Psmooth.txt')
 Piso = itp.interp1d(PS[:,0],PS[:,1], kind='cubic', fill_value=0)
+Pbao_itp = itp.interp1d(Pbao[:,0], Pbao[:,1], kind='cubic', fill_value=0)
+Psmooth_itp = itp.interp1d(Psmooth[:,0], Psmooth[:,1], kind='cubic', fill_value=0)
+
+
+def Pk_new(var, parc):
+    k, mu = var
+    A, am1, am2, a0, a1, a2, apar, aper = parc
+
+    ak = k*np.sqrt(aper**2+mu**2*(apar**2-aper**2))
+    return A*(0.64*Psmooth_itp(k) + am2/k**2 + am1/k + a0 + a1*k + a2*k**2)*Pbao_itp(ak)
+
+def Pk_vec(var, parc):
+    K, Mu = var
+    A, am1, am2, a0, a1, a2, apar, aper = parc
+    K = K.reshape(len(K),1)
+    Mu = Mu.reshape(len(Mu),1)
+
+    aK = np.dot(K, np.sqrt(aper**2+Mu.T**2*(apar**2-aper**2)))
+    Pbao_vec = Pbao_itp(aK)
+    Psmooth_vec = Psmooth_itp(K)
+    
+    return A*(0.64*Psmooth_vec + am2/K**2 + am1/K + a0 + a1*K + a2*K**2)*Pbao_vec
+
 
 def Pk(var,parc):
     '''
@@ -116,6 +142,17 @@ def CovP(var,parc,pars):
     navg, Vs = pars
     C = (Pk(var,parc) + 1/navg)**2
     return C
+
+def CovP_new(var,parc,pars):
+    navg, Vs = pars
+    C = (Pk_new(var,parc) + 1/navg)**2
+    return C
+
+def CovP_vec(var, parc, pars):
+    navg, Vs = pars
+    C = (Pk_vec(var,parc) + 1/navg)**2
+    return C
+
 
 def CovB(var,parc,pars):
     '''

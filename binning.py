@@ -72,23 +72,31 @@ def F_KL(K, mu, params, navg, Vs, par_indices=[0]):
     dPda = np.zeros((Nk,len(par_indices)), dtype=np.float64)
     Covs = np.zeros(Nk, dtype=np.float64)
 
+    P_func = Pk_new
+    C_func = CovP_new
 
-    for i in range(Nk):
-        for l in range(Nmu):
-            Ps[i] += Pk((K[i], mu[l]), params) / Nmu
-            Covs[i] += CovP((K[i], mu[l]), params, (navg, Vs)) / Nmu**2
-            for par_index in range(len(par_indices)):
-                dparams = np.zeros_like(params)
-                dparams[par_index] = eps
-                dPda[i, par_index] += (Pk((K[i], mu[l]), params+dparams) - Pk((K[i], mu[l]), params)) / eps / Nmu
-
+    # for i in range(Nk):
+    #     for l in range(Nmu):
+    #         Ps[i] += P_func((K[i], mu[l]), params) / Nmu
+    #         Covs[i] += C_func((K[i], mu[l]), params, (navg, Vs)) / Nmu**2
+    Ps = np.mean(Pk_vec((K, mu), params), axis=1)
+    Covs = np.mean(CovP_vec((K, mu), params, (navg, Vs)), axis=1)/Nmu
     Covs *= dk**2 / (2*np.pi*K**2*dmu)
+
+    for j, par_index in enumerate(par_indices):
+        dparams = np.zeros_like(params, dtype=np.float64)
+        dparams[par_index] = eps
+        dPda[:, j] = np.mean((Pk_vec((K, mu), params+dparams) - Pk_vec((K,mu), params))/eps, axis=1)
+        # for i in range(Nk):
+        #     for l in range(Nmu):
+        #         dPda[i, j] += (P_func((K[i], mu[l]), params+dparams) - P_func((K[i], mu[l]), params)) / eps / Nmu
+
     faa = np.dot(dPda.T, np.dot(np.diag(1/Covs), dPda))
     B = KL_matrix(dPda, np.diag(Covs))
     f_t = np.linalg.inv(np.dot(B, np.dot(np.diag(Covs), B.T)))
     faa_kl = np.dot(dPda.T, np.dot(B.T, np.dot(f_t, np.dot(B, dPda))))
-
     pdb.set_trace()
+
 
     return faa_kl
 
@@ -128,10 +136,10 @@ if __name__ == "__main__":
     navg = 0.01
     Vs = 1
     eps = 1e-6
-    Kmax, Kmin = (0.8, 1e-3)
+    Kmax, Kmin = (0.2, 1e-3)
     Nk = 100
     bin_sizes = [1, 2, 4, 5, 10, 20, 25, 50, 100]
-    mu = np.linspace(-1, 1, 5)
+    mu = np.linspace(-1, 1, 200)
 
     dk = (Kmax - Kmin) / Nk
     K = np.arange(Kmin, Kmax, dk)
