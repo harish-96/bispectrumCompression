@@ -95,7 +95,6 @@ def F_KL(K, mu, params, navg, Vs, par_indices=[0]):
     B = KL_matrix(dPda, np.diag(Covs))
     f_t = np.linalg.inv(np.dot(B, np.dot(np.diag(Covs), B.T)))
     faa_kl = np.dot(dPda.T, np.dot(B.T, np.dot(f_t, np.dot(B, dPda))))
-    pdb.set_trace()
 
 
     return faa_kl
@@ -131,7 +130,10 @@ if __name__ == "__main__":
     f = 0.4
     b1 = 1.7
     b2 = 1
+    A = 1
+    am2, am1, a0, a1, a2 = 0, 0, 0, 0, 0
     params = (apar, aper, f, b1, b2)
+    params_new = (A, am2, am1, a0, a1, a2, apar, aper)
 
     navg = 0.01
     Vs = 1
@@ -144,7 +146,8 @@ if __name__ == "__main__":
     dk = (Kmax - Kmin) / Nk
     K = np.arange(Kmin, Kmax, dk)
 
-    Fii_t = np.zeros(len(bin_sizes))
+    fii = F_KL(K, mu, params_new, navg, Vs, [0,1,2,3,4,5,6,7])
+    # Fii_t = np.zeros(len(bin_sizes))
 
     # for j in range(len(bin_sizes)):
 
