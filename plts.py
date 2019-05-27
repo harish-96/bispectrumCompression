@@ -1,4 +1,4 @@
-import matplotlib.pyplot as plt     
+import matplotlib.pyplot as plt
 from numba import jit
 from BFisherutils import *
 import pdb
