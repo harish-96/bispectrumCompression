@@ -1,6 +1,7 @@
 import scipy.interpolate as itp
 import numpy as np
 from interpolation import interp
+import pdb
 
 PS = np.loadtxt('test_matterpower.dat')
 Pbao = np.loadtxt('Pbao.txt')
@@ -127,9 +128,10 @@ def Bisp_vec(var,parc,pars):
     '''
     I think I should add this.
     '''
-    # Bi += (Pk([k1_v,mu1_v],parc) + Pk([k2_v,mu2_v],parc) + Pk([k3_v,mu3_v],parc))/nave
+    Bi += (Pk([k1, mu1],parc) + Pk([k2,mu2], parc) + Pk([k3,mu3], parc))/nave
 
     return Bi
+
 
 def Bisp(var,parc,pars):
     '''
@@ -241,7 +243,6 @@ def CovP_vec(var, parc, pars):
     C = (Pk_vec(var,parc) + 1/navg)**2
     return C
 
-
 def CovB(var,parc,pars):
     '''
     Covariance of Bispectrum at k1,k2,k3,mu1,phi12 for fiducial cosmological
@@ -254,6 +255,38 @@ def CovB(var,parc,pars):
  
     k1, k2, k3, mu1, phi12 = var
     navg, Vs = pars
+
+    mu12 = (k3**2 - k1**2 - k2**2)/2/k1/k2
+    mu2 = mu1*mu12 - np.sqrt(1 - mu1**2)*np.sqrt(1 - mu12**2)*np.cos(phi12)
+    mu3 = -(mu1*k1 + mu2*k2)/k3
+    
+    C = Pk([k1,mu1],parc) + 1/navg
+    C *= Pk([k2,mu2],parc) + 1/navg
+    C *= Pk([k3,mu3],parc) + 1/navg
+    C *= Vs 
+
+    return C
+
+def CovB_vec(var,parc,pars):
+    '''
+    Covariance of Bispectrum at k1,k2,k3,mu1,phi12 for fiducial cosmological
+    parameters - parc, and survey parameters - pars. 
+    var = k1,k2,k3,mu1,phi12
+    pars = navg, V
+    parc = whatever goes into Pk
+    This doesn't check for triangular condition.
+    '''
+ 
+    k1_v, k2_v, k3_v, mu1_v, phi12_v = var
+    navg, Vs = pars
+
+    lk1, lk2, lk3, lmu, lphi = len(k1_v), len(k2_v), len(k3_v), len(mu1_v), len(phi12_v)
+
+    k1 = k1_v.reshape(lk1,1,1,1,1) * np.ones((lk1,lk2,lk3,lmu,lphi))
+    k2 = k2_v.reshape(1,lk2,1,1,1) * np.ones((lk1,lk2,lk3,lmu,lphi))
+    k3 = k3_v.reshape(1,1,lk3,1,1) * np.ones((lk1,lk2,lk3,lmu,lphi))
+    mu1 = mu1_v.reshape(1,1,1,lmu,1) * np.ones((lk1, lk2, lk3, lmu, lphi))
+    phi12 = phi12_v.reshape(1,1,1,1,lphi) * np.ones((lk1, lk2, lk3, lmu, lphi))
 
     mu12 = (k3**2 - k1**2 - k2**2)/2/k1/k2
     mu2 = mu1*mu12 - np.sqrt(1 - mu1**2)*np.sqrt(1 - mu12**2)*np.cos(phi12)

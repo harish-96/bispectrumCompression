@@ -72,13 +72,6 @@ def F_KL(K, mu, params, navg, Vs, par_indices=[0]):
     dPda = np.zeros((Nk,len(par_indices)), dtype=np.float64)
     Covs = np.zeros(Nk, dtype=np.float64)
 
-    P_func = Pk_new
-    C_func = CovP_new
-
-    # for i in range(Nk):
-    #     for l in range(Nmu):
-    #         Ps[i] += P_func((K[i], mu[l]), params) / Nmu
-    #         Covs[i] += C_func((K[i], mu[l]), params, (navg, Vs)) / Nmu**2
     Ps = np.mean(Pk_vec((K, mu), params), axis=1)
     Covs = np.mean(CovP_vec((K, mu), params, (navg, Vs)), axis=1)/Nmu
     Covs *= dk**2 / (2*np.pi*K**2*dmu)
@@ -87,9 +80,6 @@ def F_KL(K, mu, params, navg, Vs, par_indices=[0]):
         dparams = np.zeros_like(params, dtype=np.float64)
         dparams[par_index] = eps
         dPda[:, j] = np.mean((Pk_vec((K, mu), params+dparams) - Pk_vec((K,mu), params))/eps, axis=1)
-        # for i in range(Nk):
-        #     for l in range(Nmu):
-        #         dPda[i, j] += (P_func((K[i], mu[l]), params+dparams) - P_func((K[i], mu[l]), params)) / eps / Nmu
 
     faa = np.dot(dPda.T, np.dot(np.diag(1/Covs), dPda))
     B = KL_matrix(dPda, np.diag(Covs))
@@ -138,10 +128,10 @@ if __name__ == "__main__":
     navg = 0.01
     Vs = 1
     eps = 1e-6
-    Kmax, Kmin = (0.2, 1e-3)
-    Nk = 100
+    Kmax, Kmin = (0.19, 1e-3)
+    Nk = 400
     bin_sizes = [1, 2, 4, 5, 10, 20, 25, 50, 100]
-    mu = np.linspace(-1, 1, 200)
+    mu = np.linspace(-1, 1, 400)
 
     dk = (Kmax - Kmin) / Nk
     K = np.arange(Kmin, Kmax, dk)
